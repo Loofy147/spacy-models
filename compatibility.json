@@ -20,6 +20,7 @@
       "en_core_web_md": ["3.8.0"],
       "en_core_web_sm": ["3.8.0"],
       "en_core_web_trf": ["3.8.0"],
+      "en_core_web_hftrf": ["3.8.0"],
       "es_core_news_lg": ["3.8.0"],
       "es_core_news_md": ["3.8.0"],
       "es_core_news_sm": ["3.8.0"],
