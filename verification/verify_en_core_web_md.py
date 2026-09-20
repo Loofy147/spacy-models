@@ -68,6 +68,12 @@ def nearest_words(nlp, word, n=8):
     return out
 
 
+def json_default(value):
+    if isinstance(value, np.generic):
+        return value.item()
+    raise TypeError(f"not JSON serializable: {type(value)!r}")
+
+
 def main():
     nlp = spacy.load(MODEL)
     vectors = nlp.vocab.vectors
@@ -184,7 +190,7 @@ def main():
         "all_pass": all(checks.values()),
     }
 
-    print(json.dumps(result, indent=2, sort_keys=True))
+    print(json.dumps(result, indent=2, sort_keys=True, default=json_default))
     Path("vector-verification.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
