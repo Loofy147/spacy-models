@@ -1,54 +1,62 @@
 # en_core_web_md 3.8.0 verification
 
-## Artifact
+## Artifact provenance
 
-- Source repository: `explosion/spacy-models`
-- Release tag: `en_core_web_md-3.8.0`
-- Wheel: `en_core_web_md-3.8.0-py3-none-any.whl`
-- Upstream release asset:
-  https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl
-- SHA-256:
-  `5e6329fe3fecedb1d1a02c3ea2172ee0fede6cea6e4aefb6a02d832dba78a310`
-- Declared model version: `3.8.0`
-- Declared compatibility: `spacy>=3.8.0,<3.9.0`
-- Declared vectors: 684830 keys, 20000 unique vectors, 300 dimensions.
+- Upstream repository: `explosion/spacy-models`
+- Release: `en_core_web_md-3.8.0`
+- Wheel SHA-256: `5e6329fe3fecedb1d1a02c3ea2172ee0fede6cea6e4aefb6a02d832dba78a310`
+- Declared vector table: 20,000 rows x 300 dimensions, 684,830 keys.
+- Vector mode observed at runtime: `default`.
 
-## Ownership boundary
+## Execution evidence
 
-This fork does not inherit the upstream GitHub Release assets. The verification workflow therefore downloads the exact upstream wheel and verifies its SHA-256 before installation.
+The exact upstream wheel was downloaded and checksum-verified in GitHub Actions, then loaded successfully with:
 
-The fork is the durable location for the verification protocol and results, not a claim that the binary artifact has been independently mirrored.
+- Python 3.12.14
+- spaCy 3.8.11
+- NumPy 1.26.4
 
-## Verification design
+A compatibility probe reproduced the same vector behavior under spaCy 3.8.0 + NumPy 1.26.4 and spaCy 3.8.11 + NumPy 2.5.3. This rules out the observed semantic degeneracy as a single-version runtime artifact.
 
-The workflow pins the runtime to `spacy==3.8.11` and then verifies:
+## Observed vector-table structure
 
-1. exact model version and vector matrix shape/key count;
-2. finite and non-degenerate vector rows;
-3. known-word vector presence and nonzero norm;
-4. OOV behavior (no vector, zero norm);
-5. identity and symmetry of cosine similarity;
-6. regression anchors for the known `dog/cat`, `dog/banana`, and `cat/banana` results;
-7. a 20-row related-vs-unrelated sanity suite (>=80% pairwise accuracy and positive mean margin);
-8. nearest-neighbor output for manual inspection.
+On spaCy 3.8.11:
 
-The semantic suite is explicitly a sanity gate, not a benchmark of general semantic quality.
+- shape: `(20000, 300)`
+- keys: `684830`
+- zero rows: `0`
+- unique numerical rows: `10112`
+- duplicated nonzero rows: `9888`
 
-## Independent execution evidence
+The duplicate rows are not merely unused/zero slots.
 
-An independent notebook currently documents an exact `en_core_web_md==3.8.0` installation and successful `spacy.load("en_core_web_md")`. It reports 300-dimensional vectors, non-zero vectors for common words, zero-vector OOV behavior, and the canonical similarity values:
+## Semantic behavior
 
-- dog↔cat: approximately `0.80168545`
-- dog↔banana: approximately `0.24327646`
-- cat↔banana: approximately `0.28154364`
+A deterministic 48-word probe generated 1,128 non-identical word pairs.
 
-This is independent evidence about the exact model version, but not a substitute for executing this fork's pinned verifier.
+The exact wheel produced 11 pairs with cosine similarity >= 0.999, including:
 
-## Status
+- `dog ↔ cat = 1.000000119`
+- `computer ↔ software = 1.0`
+- `doctor ↔ medicine = 1.0`
+- `guitar ↔ piano = 1.0`
+- `river ↔ bank = 1.0`
+- `teacher ↔ school = 1.0`
+- `lawyer ↔ court = 1.0`
+- `winter ↔ summer = 0.99999994`
 
-- Artifact existence and release metadata: **ESTABLISHED**
-- Exact wheel checksum: **ESTABLISHED**
-- Exact 3.8.0 external load + vector behavior: **EXPERIMENTALLY_SUPPORTED**
-- This fork's complete reproducible CI verification: **OPEN**
+Nearest-neighbor output is also saturated: `computer` returns unrelated/cross-domain terms such as `Paths`, `CONNECTING`, and `CONFIGURATION` at similarity 1.0.
 
-Do not build production functionality on this model until the fork's verifier produces a recorded PASS.
+The coarse related-vs-unrelated sanity test still passes, but that is insufficient because exact-vector collisions can satisfy that weak ordering while destroying useful geometry.
+
+## Disposition
+
+**Loadability:** EXPERIMENTALLY_SUPPORTED
+
+**Generic semantic word-similarity behavior:** **CONTRADICTED**
+
+**Root cause:** OPEN
+
+The current evidence shows the problem is reproducible from the exact upstream `en_core_web_md-3.8.0` artifact across multiple compatible spaCy/NumPy runtimes. Do not build a semantic-similarity or vector-retrieval primitive on this artifact.
+
+The next discriminating step is to inspect the larger `en_core_web_lg-3.8.0` artifact from the same release family before abandoning spaCy vectors entirely.
