@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - research/vector-verification-v0
+  pull_request:
+    branches:
+      - master
   workflow_dispatch:
 
 jobs:
@@ -21,70 +24,17 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          curl -L --fail --silent --show-error             -o en_core_web_md-3.8.0-py3-none-any.whl             "https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl"
-          printf '%s  %s\n'             "5e6329fe3fecedb1d1a02c3ea2172ee0fede6cea6e4aefb6a02d832dba78a310"             "en_core_web_md-3.8.0-py3-none-any.whl" | sha256sum -c -
+          curl -L --fail --silent --show-error \
+            -o en_core_web_md-3.8.0-py3-none-any.whl \
+            "https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl"
+          printf '%s  %s\n' \
+            "5e6329fe3fecedb1d1a02c3ea2172ee0fede6cea6e4aefb6a02d832dba78a310" \
+            "en_core_web_md-3.8.0-py3-none-any.whl" | sha256sum -c -
           python -m pip install "spacy>=3.8.0,<3.9.0" ./en_core_web_md-3.8.0-py3-none-any.whl
 
       - name: Load and test vectors
         shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import json
-          import spacy
-
-          MODEL = "en_core_web_md"
-          nlp = spacy.load(MODEL)
-
-          meta = nlp.meta
-          vectors = nlp.vocab.vectors
-
-          def tok(word):
-              return nlp(word)[0]
-
-          def sim(a, b):
-              return float(tok(a).similarity(tok(b)))
-
-          probes = {
-              "dog_cat": sim("dog", "cat"),
-              "dog_banana": sim("dog", "banana"),
-              "doctor_hospital": sim("doctor", "hospital"),
-              "doctor_music": sim("doctor", "music"),
-              "computer_software": sim("computer", "software"),
-              "computer_banana": sim("computer", "banana"),
-          }
-
-          checks = {
-              "load_ok": True,
-              "model_version": meta["version"] == "3.8.0",
-              "vector_dimensions": vectors.shape[1] == 300,
-              "vector_keys_nonzero": vectors.n_keys > 0,
-              "dog_has_vector": tok("dog").has_vector,
-              "cat_has_vector": tok("cat").has_vector,
-              "dog_cat_gt_dog_banana": probes["dog_cat"] > probes["dog_banana"],
-              "doctor_hospital_gt_doctor_music": probes["doctor_hospital"] > probes["doctor_music"],
-              "computer_software_gt_computer_banana": probes["computer_software"] > probes["computer_banana"],
-          }
-
-          result = {
-              "spacy_version": spacy.__version__,
-              "model_version": meta["version"],
-              "vectors_shape": list(vectors.shape),
-              "vector_keys": vectors.n_keys,
-              "probes": probes,
-              "checks": checks,
-              "all_pass": all(checks.values()),
-          }
-
-          print(json.dumps(result, indent=2, sort_keys=True))
-
-          with open("vector-verification.json", "w", encoding="utf-8") as f:
-              json.dump(result, f, indent=2, sort_keys=True)
-              f.write("\n")
-
-          if not result["all_pass"]:
-              raise SystemExit("vector verification failed")
-          PY
+        run: python verification/verify_en_core_web_md.py
 
       - name: Upload verification result
         uses: actions/upload-artifact@v4
