@@ -27,7 +27,7 @@ SEMANTIC_DEGENERACY_WORDS = [
     "summer", "money", "bank", "book", "library", "coffee", "tea", "rose",
     "flower", "vehicle", "car", "medicine", "music", "bread", "butter",
     "fruit", "water", "keyboard", "phone", "house", "tree", "mountain",
-    "piano", "camera", "engine", "forest", "doctor", "student",
+    "piano", "camera", "engine", "forest", "student",
 ]
 
 PAIRWISE_SANITY = [
