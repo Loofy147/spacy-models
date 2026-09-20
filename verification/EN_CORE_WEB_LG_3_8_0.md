@@ -10,41 +10,62 @@
 
 spaCy's current English model documentation lists `en_core_web_lg` 3.8.0 as a 382 MB model with 685k keys and 343k unique 300-dimensional vectors. citeturn428557search0turn428557search1
 
-## Execution evidence
+## Full execution evidence
 
-GitHub Actions downloaded the exact upstream wheel, verified the SHA-256, installed it with:
+The exact upstream wheel was downloaded and SHA-256 verified in GitHub Actions, then installed with:
 
 - Python 3.12.14
 - spaCy 3.8.11
 - NumPy 1.26.4
 
-and successfully loaded the model.
+The full verifier completed with **PASS**.
 
-Observed:
+Observed vector table:
 
-- vector shape: `(342918, 300)`
+- shape: `(342918, 300)`
 - keys: `684830`
-- numerical unique rows: `342918`
+- mode: `default`
+- nonzero rows: `342918`
 - zero rows: `0`
-- saturated pairs (cosine >= 0.999) across 435 pairs from 30 selected words: `0`
+- unique rows: `342918`
+- duplicated nonzero rows: `0`
 
-Observed semantic probes:
+Semantic geometry probe:
+
+- 50 selected words
+- 1,225 non-identical word pairs
+- saturated pairs (cosine >= 0.999): **0**
+- maximum non-identical cosine: **0.82296985**
+- similarity quantiles: p50=`0.21589`, p90=`0.38274`, p99=`0.67130`
+- related-vs-unrelated sanity accuracy: **100% (20/20)**
+- mean pairwise margin: `0.52298718`
+
+Core probes:
 
 - `dog ↔ cat = 0.80168539`
 - `dog ↔ banana = 0.24327642`
+- `doctor ↔ hospital = 0.62423599`
 - `computer ↔ software = 0.67071533`
-- `doctor ↔ medicine = 0.68606144`
-- `guitar ↔ piano = 0.74547100`
-- `ocean ↔ water = 0.60063189`
+- `king ↔ queen = 0.72526109`
 
-These are materially different from the degenerate behavior observed in `en_core_web_md-3.8.0`.
+Runtime invariants:
+
+- identity cosine: `0.99999994`
+- symmetry: `dog↔cat == cat↔dog`
+- OOV has no vector and zero norm
+- every probe word has a nonzero vector
+- all vector values are finite
+
+Nearest-neighbor behavior is also qualitatively coherent: for example, `dog` returns DOGS, PUPPY, PET, CAT, CANINE; `computer` returns COMPUTERS, LAPTOP, SOFTWARE, DESKTOP, COMPUTING.
 
 ## Disposition
 
 **Loadability:** EXPERIMENTALLY_SUPPORTED
 
+**Vector integrity:** EXPERIMENTALLY_SUPPORTED
+
 **Basic semantic geometry:** EXPERIMENTALLY_SUPPORTED
 
 **Production suitability:** OPEN
 
-This is now the active candidate for a second verification pass. It has passed the first non-degeneracy probe, but should still pass a larger deterministic semantic suite and an application-specific task test before architectural use.
+The model has passed the generic pre-build vector gate. The remaining gate is application-specific: the intended task must be tested against this exact artifact/runtime before it becomes an architectural dependency.
