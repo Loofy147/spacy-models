@@ -30,14 +30,16 @@ jobs:
           printf '%s  %s\n' \
             "5e6329fe3fecedb1d1a02c3ea2172ee0fede6cea6e4aefb6a02d832dba78a310" \
             "en_core_web_md-3.8.0-py3-none-any.whl" | sha256sum -c -
-          python -m pip install "spacy==3.8.11" ./en_core_web_md-3.8.0-py3-none-any.whl
+          python -m pip install "spacy==3.8.11" "click==8.3.1" ./en_core_web_md-3.8.0-py3-none-any.whl
 
       - name: Load and test vectors
         shell: bash
         run: python verification/verify_en_core_web_md.py
 
       - name: Upload verification result
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: vector-verification-result
           path: vector-verification.json
+          if-no-files-found: ignore
