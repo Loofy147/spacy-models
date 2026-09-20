@@ -19,12 +19,36 @@ This fork does not inherit the upstream GitHub Release assets. The verification 
 
 The fork is the durable location for the verification protocol and results, not a claim that the binary artifact has been independently mirrored.
 
-## Verification status
+## Verification design
 
-At creation of this protocol:
+The workflow pins the runtime to `spacy==3.8.11` and then verifies:
 
-- Artifact existence and metadata: ESTABLISHED from upstream GitHub release.
-- Exact wheel checksum: ESTABLISHED from upstream GitHub release metadata.
-- Load + runtime semantic checks: OPEN until this repository's CI executes `.github/workflows/vector-verification.yml` successfully.
+1. exact model version and vector matrix shape/key count;
+2. finite and non-degenerate vector rows;
+3. known-word vector presence and nonzero norm;
+4. OOV behavior (no vector, zero norm);
+5. identity and symmetry of cosine similarity;
+6. regression anchors for the known `dog/cat`, `dog/banana`, and `cat/banana` results;
+7. a 20-row related-vs-unrelated sanity suite (>=80% pairwise accuracy and positive mean margin);
+8. nearest-neighbor output for manual inspection.
 
-Do not build production functionality on this model until the CI result is recorded.
+The semantic suite is explicitly a sanity gate, not a benchmark of general semantic quality.
+
+## Independent execution evidence
+
+An independent notebook currently documents an exact `en_core_web_md==3.8.0` installation and successful `spacy.load("en_core_web_md")`. It reports 300-dimensional vectors, non-zero vectors for common words, zero-vector OOV behavior, and the canonical similarity values:
+
+- dog↔cat: approximately `0.80168545`
+- dog↔banana: approximately `0.24327646`
+- cat↔banana: approximately `0.28154364`
+
+This is independent evidence about the exact model version, but not a substitute for executing this fork's pinned verifier.
+
+## Status
+
+- Artifact existence and release metadata: **ESTABLISHED**
+- Exact wheel checksum: **ESTABLISHED**
+- Exact 3.8.0 external load + vector behavior: **EXPERIMENTALLY_SUPPORTED**
+- This fork's complete reproducible CI verification: **OPEN**
+
+Do not build production functionality on this model until the fork's verifier produces a recorded PASS.
