@@ -104,6 +104,8 @@ def main():
     raw_rows = vectors.data
     finite_all = bool(np.isfinite(raw_rows).all())
     nonzero_rows = int(np.count_nonzero(np.linalg.norm(raw_rows, axis=1) > 0))
+    unique_rows = int(np.unique(raw_rows, axis=0).shape[0])
+    duplicate_row_count = int(shape[0] - unique_rows)
 
     common_words = sorted({w for row in PAIRWISE_SANITY for w in row})
     vector_presence = {
@@ -163,6 +165,7 @@ def main():
         "vector_keys": bool(vectors.n_keys == EXPECTED_KEYS),
         "vectors_finite": finite_all,
         "nonzero_vector_rows": nonzero_rows > 1_000,
+        "unique_rows_recorded": unique_rows > 0,
         "sanity_words_have_vectors": all(vector_presence.values()),
         "dog_has_vector": token(nlp, "dog").has_vector,
         "dog_vector_nonzero": token(nlp, "dog").vector_norm > 0,
@@ -188,6 +191,8 @@ def main():
         "vectors_shape": list(shape),
         "vector_keys": int(vectors.n_keys),
         "nonzero_vector_rows": nonzero_rows,
+        "unique_rows": unique_rows,
+        "duplicate_row_count": duplicate_row_count,
         "vector_presence": vector_presence,
         "oov": {
             "text": oov_word,
