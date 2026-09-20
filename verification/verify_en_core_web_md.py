@@ -52,6 +52,28 @@ def similarity(nlp, a, b):
     return float(token(nlp, a).similarity(token(nlp, b)))
 
 
+def row_diagnostics(nlp, words):
+    out = {}
+    for word in words:
+        orth = nlp.vocab.strings[word]
+        row = nlp.vocab.vectors.key2row.get(orth)
+        vec = nlp.vocab[word].vector
+        out[word] = {
+            "orth": int(orth),
+            "row": None if row is None else int(row),
+            "norm": float(np.linalg.norm(vec)),
+            "first8": [float(x) for x in vec[:8]],
+        }
+    dog = nlp.vocab["dog"].vector
+    cat = nlp.vocab["cat"].vector
+    dog_norm = float(np.linalg.norm(dog))
+    cat_norm = float(np.linalg.norm(cat))
+    manual = float(np.dot(dog, cat) / (dog_norm * cat_norm))
+    out["_dog_cat_manual_cosine"] = manual
+    out["_dog_cat_vector_equal"] = bool(np.array_equal(dog, cat))
+    return out
+
+
 def nearest_words(nlp, word, n=8):
     query = token(nlp, word)
     keys, _, scores = nlp.vocab.vectors.most_similar(
@@ -182,6 +204,7 @@ def main():
         "pairwise_sanity_accuracy": pairwise_accuracy,
         "mean_pairwise_margin": mean_pairwise_margin,
         "pairwise_sanity": pairwise,
+        "row_diagnostics": row_diagnostics(nlp, ["dog", "cat", "banana", "computer", "software", "doctor", "hospital", "king", "queen"]),
         "nearest_neighbors": {
             word: nearest_words(nlp, word)
             for word in ("dog", "computer", "doctor", "king")
