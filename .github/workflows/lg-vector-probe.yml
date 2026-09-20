@@ -1,0 +1,81 @@
+name: lg-vector-probe
+
+on:
+  push:
+    branches:
+      - research/vector-verification-v0
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned runtime and exact lg artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install "numpy==1.26.4" "spacy==3.8.11" "click==8.3.1"
+          curl -L --fail --silent --show-error \
+            -o en_core_web_lg-3.8.0-py3-none-any.whl \
+            "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl"
+          printf '%s  %s\n' \
+            "293e9547a655b25499198ab15a525b05b9407a75f10255e405e8c3854329ab63" \
+            "en_core_web_lg-3.8.0-py3-none-any.whl" | sha256sum -c -
+          python -m pip install ./en_core_web_lg-3.8.0-py3-none-any.whl
+
+      - name: Probe lg vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import itertools
+          import json
+          import numpy as np
+          import spacy
+
+          words = [
+              "dog", "cat", "banana", "computer", "software", "doctor",
+              "medicine", "hospital", "guitar", "piano", "ocean", "water",
+              "river", "bank", "airport", "car", "teacher", "school",
+              "lawyer", "court", "winter", "summer", "money", "house",
+              "king", "queen", "coffee", "tea", "rose", "flower",
+          ]
+
+          nlp = spacy.load("en_core_web_lg")
+          vectors = nlp.vocab.vectors
+
+          def sim(a, b):
+              va = nlp.vocab[a].vector
+              vb = nlp.vocab[b].vector
+              return float(np.dot(va, vb) / (np.linalg.norm(va) * np.linalg.norm(vb)))
+
+          pairs = []
+          for a, b in itertools.combinations(words, 2):
+              score = sim(a, b)
+              if score >= 0.999:
+                  pairs.append([a, b, score])
+
+          result = {
+              "spacy": spacy.__version__,
+              "numpy": np.__version__,
+              "shape": list(vectors.shape),
+              "n_keys": int(vectors.n_keys),
+              "unique_rows": int(np.unique(vectors.data, axis=0).shape[0]),
+              "zero_rows": int(np.count_nonzero(np.linalg.norm(vectors.data, axis=1) == 0)),
+              "dog_cat": sim("dog", "cat"),
+              "dog_banana": sim("dog", "banana"),
+              "computer_software": sim("computer", "software"),
+              "doctor_medicine": sim("doctor", "medicine"),
+              "guitar_piano": sim("guitar", "piano"),
+              "ocean_water": sim("ocean", "water"),
+              "saturated_pairs": pairs,
+          }
+          print(json.dumps(result, indent=2, sort_keys=True))
+          if pairs:
+              raise SystemExit("lg vector degeneracy detected")
+          PY

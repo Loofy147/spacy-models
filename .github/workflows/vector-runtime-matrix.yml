@@ -1,0 +1,96 @@
+name: vector-runtime-matrix
+
+on:
+  push:
+    branches:
+      - research/vector-verification-v0
+  workflow_dispatch:
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: "3.12"
+            spacy: "3.8.0"
+            numpy: "1.26.4"
+          - python: "3.12"
+            spacy: "3.8.11"
+            numpy: "1.26.4"
+          - python: "3.12"
+            spacy: "3.8.0"
+            numpy: "2.0.2"
+          - python: "3.12"
+            spacy: "3.8.11"
+            numpy: "2.5.3"
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install pinned runtime and exact model artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "numpy==${{ matrix.numpy }}" \
+            "spacy==${{ matrix.spacy }}" \
+            "click==8.3.1"
+          curl -L --fail --silent --show-error \
+            -o en_core_web_md-3.8.0-py3-none-any.whl \
+            "https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl"
+          printf '%s  %s\n' \
+            "5e6329fe3fecedb1d1a02c3ea2172ee0fede6cea6e4aefb6a02d832dba78a310" \
+            "en_core_web_md-3.8.0-py3-none-any.whl" | sha256sum -c -
+          python -m pip install ./en_core_web_md-3.8.0-py3-none-any.whl
+
+      - name: Probe vector behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import numpy as np
+          import spacy
+
+          nlp = spacy.load("en_core_web_md")
+          vectors = nlp.vocab.vectors
+
+          def cos(a, b):
+              a = np.asarray(a)
+              b = np.asarray(b)
+              return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+
+          dog = nlp.vocab["dog"].vector
+          cat = nlp.vocab["cat"].vector
+          banana = nlp.vocab["banana"].vector
+          computer = nlp.vocab["computer"].vector
+          software = nlp.vocab["software"].vector
+
+          result = {
+              "python": ".".join(map(str, __import__("sys").version_info[:3])),
+              "spacy": spacy.__version__,
+              "numpy": np.__version__,
+              "vector_mode": vectors.mode,
+              "shape": list(vectors.shape),
+              "n_keys": int(vectors.n_keys),
+              "unique_rows": int(np.unique(vectors.data, axis=0).shape[0]),
+              "dog_row": int(vectors.key2row[nlp.vocab.strings["dog"]]),
+              "cat_row": int(vectors.key2row[nlp.vocab.strings["cat"]]),
+              "computer_row": int(vectors.key2row[nlp.vocab.strings["computer"]]),
+              "software_row": int(vectors.key2row[nlp.vocab.strings["software"]]),
+              "dog_cat": cos(dog, cat),
+              "dog_banana": cos(dog, banana),
+              "cat_banana": cos(cat, banana),
+              "computer_software": cos(computer, software),
+              "dog_cat_equal": bool(np.array_equal(dog, cat)),
+              "computer_software_equal": bool(np.array_equal(computer, software)),
+          }
+          print(json.dumps(result, indent=2, sort_keys=True))
+          PY
