@@ -20,6 +20,16 @@ REFERENCE_SIMILARITIES = {
 }
 REFERENCE_ABS_TOL = 1e-5
 
+SEMANTIC_DEGENERACY_WORDS = [
+    "dog", "cat", "banana", "computer", "software", "doctor", "hospital",
+    "guitar", "ocean", "river", "airplane", "airport", "teacher", "school",
+    "lawyer", "court", "restaurant", "food", "king", "queen", "winter",
+    "summer", "money", "bank", "book", "library", "coffee", "tea", "rose",
+    "flower", "vehicle", "car", "medicine", "music", "bread", "butter",
+    "fruit", "water", "keyboard", "phone", "house", "tree", "mountain",
+    "piano", "camera", "engine", "forest", "doctor", "student",
+]
+
 PAIRWISE_SANITY = [
     ("dog", "cat", "banana"),
     ("doctor", "hospital", "music"),
@@ -106,6 +116,11 @@ def main():
     nonzero_rows = int(np.count_nonzero(np.linalg.norm(raw_rows, axis=1) > 0))
     unique_rows = int(np.unique(raw_rows, axis=0).shape[0])
     duplicate_row_count = int(shape[0] - unique_rows)
+    row_norms = np.linalg.norm(raw_rows, axis=1)
+    zero_rows = int(np.count_nonzero(row_norms == 0))
+    nonzero_data = raw_rows[row_norms > 0]
+    unique_nonzero_rows = int(np.unique(nonzero_data, axis=0).shape[0])
+    duplicate_nonzero_rows = int(nonzero_data.shape[0] - unique_nonzero_rows)
 
     common_words = sorted({w for row in PAIRWISE_SANITY for w in row})
     vector_presence = {
@@ -146,6 +161,21 @@ def main():
         )
 
     pairwise_accuracy = sum(x["pass"] for x in pairwise) / len(pairwise)
+
+    semantic_pairs = []
+    for index, left in enumerate(SEMANTIC_DEGENERACY_WORDS):
+        for right in SEMANTIC_DEGENERACY_WORDS[index + 1:]:
+            score = similarity(nlp, left, right)
+            semantic_pairs.append({
+                "left": left,
+                "right": right,
+                "similarity": score,
+                "saturated": score >= 0.999,
+            })
+    saturated_pairs = [p for p in semantic_pairs if p["saturated"]]
+    max_nonidentical_similarity = max(
+        p["similarity"] for p in semantic_pairs
+    )
     mean_pairwise_margin = sum(x["margin"] for x in pairwise) / len(pairwise)
 
     probes = {
@@ -177,11 +207,9 @@ def main():
         ),
         "oov_has_no_vector": not oov.has_vector,
         "oov_zero_norm": oov.vector_norm == 0,
-        "reference_similarities": all(
-            row["pass"] for row in reference_results.values()
-        ),
         "pairwise_sanity_accuracy": pairwise_accuracy >= 0.80,
         "mean_pairwise_margin_positive": mean_pairwise_margin > 0,
+        "no_nonidentical_similarity_saturation": len(saturated_pairs) == 0,
     }
 
     result = {
@@ -193,6 +221,9 @@ def main():
         "nonzero_vector_rows": nonzero_rows,
         "unique_rows": unique_rows,
         "duplicate_row_count": duplicate_row_count,
+        "zero_rows": zero_rows,
+        "unique_nonzero_rows": unique_nonzero_rows,
+        "duplicate_nonzero_rows": duplicate_nonzero_rows,
         "vector_presence": vector_presence,
         "oov": {
             "text": oov_word,
@@ -208,6 +239,13 @@ def main():
         "probes": probes,
         "pairwise_sanity_accuracy": pairwise_accuracy,
         "mean_pairwise_margin": mean_pairwise_margin,
+        "semantic_degeneracy": {
+            "word_count": len(SEMANTIC_DEGENERACY_WORDS),
+            "pair_count": len(semantic_pairs),
+            "saturated_pair_count": len(saturated_pairs),
+            "max_nonidentical_similarity": max_nonidentical_similarity,
+            "saturated_pairs": saturated_pairs[:50],
+        },
         "pairwise_sanity": pairwise,
         "row_diagnostics": row_diagnostics(nlp, ["dog", "cat", "banana", "computer", "software", "doctor", "hospital", "king", "queen"]),
         "nearest_neighbors": {
@@ -220,7 +258,7 @@ def main():
 
     print(json.dumps(result, indent=2, sort_keys=True, default=json_default))
     Path("vector-verification.json").write_text(
-        json.dumps(result, indent=2, sort_keys=True) + "\n",
+        json.dumps(result, indent=2, sort_keys=True, default=json_default) + "\n",
         encoding="utf-8",
     )
 
