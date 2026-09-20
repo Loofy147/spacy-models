@@ -132,7 +132,7 @@ def main():
     checks = {
         "model_version": nlp.meta["version"] == EXPECTED_MODEL_VERSION,
         "vector_shape": shape == EXPECTED_SHAPE,
-        "vector_keys": vectors.n_keys == EXPECTED_KEYS,
+        "vector_keys": bool(vectors.n_keys == EXPECTED_KEYS),
         "vectors_finite": finite_all,
         "nonzero_vector_rows": nonzero_rows > 1_000,
         "sanity_words_have_vectors": all(vector_presence.values()),
@@ -158,7 +158,7 @@ def main():
         "model": MODEL,
         "model_version": nlp.meta["version"],
         "vectors_shape": list(shape),
-        "vector_keys": vectors.n_keys,
+        "vector_keys": int(vectors.n_keys),
         "nonzero_vector_rows": nonzero_rows,
         "vector_presence": vector_presence,
         "oov": {
